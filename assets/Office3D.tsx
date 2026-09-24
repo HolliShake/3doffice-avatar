@@ -897,6 +897,12 @@ export interface Office3DProps {
     onLampToggle?: (id: StationId, on: boolean) => void;
     /** Fired with the `StationId` when a desk or stool is clicked. */
     onStationClick?: (id: StationId) => void;
+    /**
+     * Breakpoint (px) below which the component treats the viewport as
+     * "mobile" for the scroll/overflow behavior described on `className`/`style`.
+     * @default 768
+     */
+    mobileBreakpoint?: number;
     className?: string;
     style?: React.CSSProperties;
 }
@@ -904,6 +910,25 @@ export interface Office3DProps {
 const SKIN: readonly HexColor[] = ['#ffcf9f', '#f0b58a', '#c68863', '#8d5a3b', '#ffd9b3'];
 const HAIR: readonly HexColor[] = ['#2f2118', '#0f0d0b', '#5b3a1e', '#8b5e3c', '#4a4a4a', '#b55219'];
 const SHIRTS: readonly HexColor[] = ['#6c5ce7', '#0ea5a4', '#e15b64', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
+
+/**
+ * Tracks whether the viewport is at/below `breakpoint`. Used only to decide
+ * the container's overflow/touch-scroll behavior — never affects 3D layout.
+ */
+function useIsMobileViewport(breakpoint: number): boolean {
+    const [isMobile, setIsMobile] = useState<boolean>(() =>
+        typeof window !== 'undefined' ? window.innerWidth <= breakpoint : false
+    );
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+        const onChange = () => setIsMobile(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, [breakpoint]);
+    return isMobile;
+}
 
 export const Office3D: React.FC<Office3DProps> = ({
     layout,
@@ -916,10 +941,12 @@ export const Office3D: React.FC<Office3DProps> = ({
     defaultLampsOn = true,
     onLampToggle,
     onStationClick,
+    mobileBreakpoint = 768,
     className,
     style,
 }) => {
     const stations = useMemo<StationDef[]>(() => resolveStations(layout), [layout]);
+    const isMobile = useIsMobileViewport(mobileBreakpoint);
 
     const assignments = useMemo<AvatarAssignments>(() => {
         const result: AvatarAssignments = {};
@@ -952,8 +979,40 @@ export const Office3D: React.FC<Office3DProps> = ({
     }, [avatars, avatarAt, avatar, autoPopulate, stations]);
 
     return (
-        <div className={className} style={{ width: '100%', height: '100%', minHeight: 360, ...style }}>
-            <Canvas camera={{ position: [2, 4, 9], fov: 38, far: 200 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+        <div
+            className={className}
+            style={{
+                width: '100%',
+                height: '100%',
+                // Fill the parent exactly — no forced minimum, so the
+                // component never grows past (or scrolls within) whatever
+                // box it's given. Desktop/tablet: clip anything that would
+                // otherwise cause a scrollbar. Mobile: allow the container
+                // itself to scroll if its content is taller than the parent,
+                // since touch users often expect to be able to scroll past it.
+                overflow: isMobile ? 'auto' : 'hidden',
+                position: 'relative',
+                ...style,
+            }}
+        >
+            <Canvas
+                camera={{ position: [2, 4, 9], fov: 38, far: 200 }}
+                dpr={[1, 2]}
+                gl={{ antialias: true, alpha: true }}
+                // `display:'block'` matters: a <canvas> is inline by default,
+                // which leaves a few px of baseline gap under it — that gap
+                // is what usually causes a container to overflow its parent
+                // by just enough to trigger an unwanted scrollbar.
+                style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    // On mobile, don't let the canvas swallow one-finger
+                    // vertical drags meant for page scrolling; two-finger /
+                    // pinch gestures still reach OrbitControls.
+                    touchAction: isMobile ? 'pan-y' : 'none',
+                }}
+            >
                 <color attach="background" args={['#edf1f7']} />
                 <OfficeScene
                     stations={stations}
