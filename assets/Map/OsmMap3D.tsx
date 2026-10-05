@@ -26,7 +26,7 @@ import {
   type OsmWay,
   parseOsm,
   type Tags,
-} from '@/lib/osm-parser';
+} from './osm-parser';
 import {
   altNames,
   bestName,
