@@ -17,7 +17,7 @@ import {
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
-import { assembleMultipolygon } from '@/lib/osm-multipolygon';
+import { assembleMultipolygon } from './osm-multipolygon';
 import {
   type LatLon,
   type OsmDocument,
@@ -34,7 +34,7 @@ import {
   isAnnotationOnly,
   parseNamespacedTags,
   splitTag,
-} from '@/lib/osm-tags';
+} from './osm-tags';
 
 /* ============================================================
  * PERFORMANCE NOTES
